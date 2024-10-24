@@ -1,0 +1,6 @@
+pub type LogLines = Option<Vec<String>>;
+
+pub trait Adapter {
+    fn get_log_line(&mut self) -> LogLines;
+    fn send_message(&mut self, input: String) -> LogLines;
+}
