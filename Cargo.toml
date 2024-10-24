@@ -5,5 +5,5 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.82"
-ncurses = "6.0.0"
+pancurses = "0.17.0"
 websocket = "0.27.1"

@@ -66,24 +66,6 @@ impl App {
     }
 
     fn poll_keyboard(&mut self) {
-
-        match ncurses::get_wch() {
-            Some(ncurses::WchResult::KeyCode(code)) => {
-
-            },
-            Some(ncurses::WchResult::Char(c)) => {
-                match c {
-                    HK_TO_START => {
-                        self.ui.move_to_start();
-                    },
-                    HK_TO_END => {
-                        self.ui.move_to_end();
-                    },
-                    _ => {},
-                }
-            },
-            None => {},
-        }
-
+        self.ui.handle_keyboard();
     }
 }

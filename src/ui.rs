@@ -1,9 +1,18 @@
-#[derive(Debug, Default)]
+use pancurses::Window;
+
+#[derive(Debug)]
 pub struct UI {
     pub lines: Vec<String>,
     dirty: bool,
     scroll_pos: u32,
     scroll_locked: bool,
+    win: Window,
+}
+
+impl Default for UI {
+    fn default() -> Self {
+        UI::new()
+    }
 }
 
 impl UI {
@@ -13,20 +22,22 @@ impl UI {
             dirty: false,
             scroll_pos: 0,
             scroll_locked: true,
+            win: pancurses::initscr(),
         }
     }
 
     pub fn setup(&mut self) {
         // ncurses setup
-        ncurses::initscr();
-        ncurses::noecho();
-        ncurses::cbreak();
-        ncurses::timeout(5);
+        // currently done in constructor
+        //pancurses::initscr();
+        pancurses::noecho();
+        pancurses::cbreak();
+        self.win.timeout(5);
     }
 
     pub fn teardown(&mut self) {
         // ncurses teardown
-        ncurses::endwin();
+        pancurses::endwin();
     }
 
     pub fn add_line(&mut self, line: String) {
@@ -67,12 +78,9 @@ impl UI {
             return
         }
 
-        ncurses::clear();
+        self.win.clear();
 
-        let mut max_x = 0;
-        let mut max_y = 0;
-        ncurses::getmaxyx(ncurses::stdscr(), &mut max_y, &mut max_x);
-
+        let (max_y, _) = self.win.get_max_yx();
         let total_lines = self.lines.len();
         let mut i = self.lines.len().saturating_sub(max_y as usize);
 
@@ -80,26 +88,31 @@ impl UI {
             let l = self.lines.get(i)
                 .expect("get next line");
 
-            match ncurses::addstr(l.as_str()) {
-                Ok(_) => {
-                    ncurses::addch('\n' as u32);
-                },
-                Err(e) => {
-                    eprintln!("cannot print line: {}", e);
-                    ncurses::addch('\n' as u32);
-                    return
-                },
-            }
+            // TODO: handle return value
+            self.win.addstr(l);
+            self.win.addch('\n' as u32);
 
             i = i + 1;
         }
 
-        ncurses::refresh();
+        self.win.refresh();
         self.dirty = false;
     }
 
     pub fn should_exit(&self) -> bool {
         false
+    }
+
+    pub fn handle_keyboard(&mut self) {
+        match self.win.getch() {
+            Some(pancurses::Input::Character('g')) => {
+                self.move_to_start();
+            },
+            Some(pancurses::Input::Character('G')) => {
+                self.move_to_end();
+            },
+            _ => {},
+        }
     }
 }
 
