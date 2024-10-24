@@ -2,7 +2,8 @@
 pub struct UI {
     pub lines: Vec<String>,
     dirty: bool,
-    offset_y: u32,
+    scroll_pos: u32,
+    scroll_locked: bool,
 }
 
 impl UI {
@@ -10,7 +11,8 @@ impl UI {
         UI{
             lines: vec![],
             dirty: false,
-            offset_y: 0,
+            scroll_pos: 0,
+            scroll_locked: true,
         }
     }
 
@@ -40,6 +42,23 @@ impl UI {
 
     pub fn add_error(&mut self, e: anyhow::Error) {
         self.add_line(format!("{}", e));
+    }
+
+    pub fn move_up(&mut self) {
+        self.scroll_pos = self.scroll_pos.saturating_sub(1);
+    }
+
+    pub fn move_down(&mut self) {
+        self.scroll_pos = self.scroll_pos.saturating_add(1);
+    }
+
+    pub fn move_to_end(&mut self) {
+        self.scroll_pos = 0;
+        self.scroll_locked = true;
+    }
+
+    pub fn move_to_start(&mut self) {
+        self.scroll_locked = false;
     }
 
     pub fn render(&mut self) {
