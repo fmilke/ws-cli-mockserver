@@ -56,11 +56,21 @@ impl UI {
     }
 
     pub fn move_up(&mut self) {
-        self.scroll_pos = self.scroll_pos.saturating_sub(1);
+
+        if self.scroll_locked {
+            let max_y = self.win.get_max_y();
+            self.scroll_pos = self.lines.len()
+                .saturating_sub(max_y as usize)
+                .saturating_sub(1) as u32;
+            self.scroll_locked = false;
+        } else {
+            self.scroll_pos = self.scroll_pos.saturating_sub(1);
+            self.scroll_locked = false;
+        }
     }
 
     pub fn move_down(&mut self) {
-        self.scroll_pos = self.scroll_pos.saturating_add(1);
+        self.scroll_pos = self.scroll_pos.saturating_add(1).min(self.lines.len() as u32);
     }
 
     pub fn move_to_end(&mut self) {
@@ -78,11 +88,20 @@ impl UI {
             return
         }
 
+        // TODO: do we have to clear? either way, reduce flickering
         self.win.clear();
 
         let (max_y, _) = self.win.get_max_yx();
-        let total_lines = self.lines.len();
+        let mut total_lines = self.lines.len();
+
+        // by default show last lineself.u
         let mut i = self.lines.len().saturating_sub(max_y as usize);
+
+        // but when scrolling, show lines after scroll_pos
+        if !self.scroll_locked {
+            i = self.scroll_pos as usize;
+            total_lines = total_lines.min(i + max_y as usize);
+        }
 
         while i < total_lines {
             let l = self.lines.get(i)
@@ -111,6 +130,13 @@ impl UI {
             Some(pancurses::Input::Character('G')) => {
                 self.move_to_end();
             },
+            Some(pancurses::Input::Character('j')) => {
+                self.move_down();
+            },
+            Some(pancurses::Input::Character('k')) => {
+                self.move_up();
+            },
+            // TODO: use {} to move by screen height
             _ => {},
         }
     }
