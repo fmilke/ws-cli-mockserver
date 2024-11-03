@@ -1,4 +1,4 @@
-use super::common::Adapter;
+use super::common::{Adapter, Line};
 
 #[derive(Default)]
 pub struct TestAdapter {
@@ -7,9 +7,14 @@ pub struct TestAdapter {
 
 impl Adapter for TestAdapter {
 
-    fn get_lines(&mut self) -> Option<Vec<String>> {
+    fn get_lines(&mut self) -> Option<Vec<Line>> {
         self.iter = self.iter + 1;
-        Some(vec![format!("{}", self.iter)])
+
+        if self.iter % 5 == 0 {
+            Some(vec![Line::new_log(format!("{}", self.iter))])
+        } else {
+            None
+        }
     }
 }
 

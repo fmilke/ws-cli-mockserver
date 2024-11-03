@@ -1,17 +1,17 @@
 use core::time;
-use std::thread;
+use std::path::Path;
+use std::{fs, thread};
 
+use crate::parser::{ParseResult, Parser};
 use crate::ui::UI;
-use crate::adapters::common::Adapter;
-
-const HK_TO_START: u32 = 'g' as u32;
-const HK_TO_END: u32 = 'G' as u32;
+use crate::adapters::common::{Adapter, Direction, Line};
 
 #[derive(Default)]
 pub struct App
 {
     ui: UI,
     adapters: Vec<Box::<dyn Adapter>>,
+    should_exit: bool,
 }
 
 impl App {
@@ -24,10 +24,9 @@ impl App {
         self.ui.setup();
 
         loop {
-            eprintln!("looping...");
             self.poll_adapters();
             self.poll_keyboard();
-            if self.ui.should_exit() {
+            if self.should_exit {
                 break
             }
 
@@ -45,7 +44,7 @@ impl App {
 
         while i < len {
             let a = self.adapters.get_mut(i)
-                .expect("Adapter to exist");
+                .expect("adapter to exist");
 
             if let Err(e) = a.status() {
                 // remove with bad status
@@ -55,7 +54,6 @@ impl App {
             } else {
 
                 if let Some(lines) = a.get_lines() {
-                    eprintln!("got some lines");
                     self.ui.add_lines(lines);
                 }
 
@@ -66,6 +64,62 @@ impl App {
     }
 
     fn poll_keyboard(&mut self) {
-        self.ui.handle_keyboard();
+        if let Some(command) = self.ui.handle_keyboard() {
+            match Parser::parse(command) {
+                ParseResult::Exit => {
+                    self.should_exit = true;
+                },
+                ParseResult::Help => {
+                    self.ui.print_help();
+                },
+                ParseResult::List => {
+                    eprintln!("listing items");
+                    self.list_items();
+                },
+                ParseResult::Send(list) => {
+                    eprintln!("sending items: {}", list);
+                    self.send_message(list);
+                },
+                ParseResult::Malformed(s) => {
+                    eprintln!("malformed command: {}", s);
+                },
+            }
+        }
+    }
+
+    fn list_items(&mut self) {
+        let p = Path::new("./mocks");
+        match fs::read_dir(p) {
+            Err(e) => {
+                eprintln!("could not list files: {}", e);
+                self.ui.add_line(Line::new_log(String::from("cannot list files. failed to read directory.")));
+            },
+            Ok(dir) => {
+                for p in dir {
+                    match  p {
+                        Ok(f) => self.ui.add_line(Line::new_log(f.file_name().to_string_lossy().to_string())),
+                        Err(e) => eprintln!("could not read file: {}", e),
+                    }
+                }
+            },
+        }
+    }
+
+    fn send_message(&mut self, file_name: String) {
+        let file_name = String::from("mocks/") + file_name.as_str();
+
+        match fs::read_to_string(&file_name) {
+            Ok(content) => {
+                self.ui.add_line(Line::new_json(content.clone(), Direction::Outgoing));
+
+                for a in self.adapters.iter_mut() {
+                    a.send_message(&content);
+                }
+            },
+            Err(e) => {
+                self.ui.add_line(Line::new_log(format!("could not read file: {}", file_name)));
+                eprintln!("could not read file {}: {}", file_name, e);
+            },
+        }
     }
 }
